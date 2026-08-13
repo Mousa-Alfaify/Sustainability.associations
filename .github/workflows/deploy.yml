@@ -1,0 +1,55 @@
+name: نشر الموقع على GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# صلاحيات النشر على Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# منع تشغيل عمليتَي نشر متزامنتين
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: تثبيت الحزم
+        run: npm ci
+
+      - name: فحص الأنواع
+        run: npm run typecheck
+
+      - name: بناء الموقع كملفات ثابتة
+        env:
+          GITHUB_PAGES: "true"
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
