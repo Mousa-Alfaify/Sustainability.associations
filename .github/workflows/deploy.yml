@@ -5,19 +5,17 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# صلاحيات النشر على Pages
+# النشر يتم بدفع الملفات الثابتة إلى فرع gh-pages،
+# وهو مصدر GitHub Pages المفعّل على هذا المستودع.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# منع تشغيل عمليتَي نشر متزامنتين
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,21 +36,15 @@ jobs:
           GITHUB_PAGES: "true"
         run: npm run build
 
-      # enablement تُفعّل GitHub Pages تلقائيًا عند أول تشغيل
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./out
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: دفع المخرجات إلى فرع gh-pages
+        working-directory: out
+        run: |
+          git init -q
+          git checkout -qb gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "نشر ${GITHUB_SHA::7} من main"
+          git push -qf \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
+            gh-pages
