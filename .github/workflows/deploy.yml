@@ -34,6 +34,11 @@ jobs:
       - name: بناء الموقع كملفات ثابتة
         env:
           GITHUB_PAGES: "true"
+          # يُحقنان فقط إذا أضفتهما في Settings → Secrets and variables →
+          # Actions باسمي SUPABASE_URL و SUPABASE_ANON_KEY. بدونهما يُبنى
+          # الموقع في «وضع العرض التجريبي المحلي» تلقائيًا (راجع README.md).
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: npm run build
 
       - name: دفع المخرجات إلى فرع gh-pages

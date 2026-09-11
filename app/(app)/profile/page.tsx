@@ -3,13 +3,17 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertCircle,
   Building2,
   Check,
   Coins,
+  Download,
   Handshake,
+  Loader2,
   RotateCcw,
   Save,
   Sparkles,
+  Upload,
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MoneyField, TextField } from "@/components/shared/money-field";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useAppStore } from "@/lib/store/app-store";
 import { SECTOR_OPTIONS } from "@/lib/data/demo-org";
 import { analyzeOrg } from "@/lib/finance/calculations";
@@ -45,13 +50,36 @@ const fromLines = (text: string) =>
     .map((line) => line.trim())
     .filter(Boolean);
 
+/** يتحقق أن الكائن المستورد يحمل بنية ملف جمعية صالحة قبل تطبيقه */
+function isValidOrgProfile(value: unknown): value is OrgProfile {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.name === "string" &&
+    typeof v.expenses === "object" &&
+    v.expenses !== null &&
+    typeof v.income === "object" &&
+    v.income !== null &&
+    typeof v.reserve === "number" &&
+    Array.isArray(v.assets) &&
+    Array.isArray(v.expertise) &&
+    Array.isArray(v.partnerships)
+  );
+}
+
 export default function ProfilePage() {
   const router = useRouter();
-  const { profile, setProfile, resetToDemo, markAnalyzed } = useAppStore();
+  const { mode, profile, setProfile, resetToDemo, markAnalyzed, saveStatus, saveError } =
+    useAppStore();
   const [draft, setDraft] = React.useState<OrgProfile>(profile);
+  const [saving, setSaving] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
+  const [localSaveError, setLocalSaveError] = React.useState<string | null>(null);
+  const [resetOpen, setResetOpen] = React.useState(false);
+  const [importError, setImportError] = React.useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // مزامنة المسودة عند تغيّر الملف من مكان آخر (إعادة الضبط مثلًا)
+  // مزامنة المسودة عند تغيّر الملف من مكان آخر (إعادة الضبط، أو تعديل زميل في الوضع السحابي)
   React.useEffect(() => {
     setDraft(profile);
   }, [profile]);
@@ -76,12 +104,71 @@ export default function ProfilePage() {
     setSaved(false);
   }
 
-  function save() {
-    setProfile(draft);
-    markAnalyzed();
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2500);
+  async function save() {
+    setSaving(true);
+    setLocalSaveError(null);
+    try {
+      await setProfile(draft);
+      markAnalyzed();
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2500);
+    } catch (error) {
+      setLocalSaveError((error as Error).message);
+      throw error;
+    } finally {
+      setSaving(false);
+    }
   }
+
+  function handleReset() {
+    resetToDemo();
+    setResetOpen(false);
+  }
+
+  function exportData() {
+    const blob = new Blob([JSON.stringify(draft, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const safeName = (draft.name || "جمعية")
+      .trim()
+      .replace(/[\\/:*?"<>|\s]+/g, "-");
+    a.href = url;
+    a.download = `ملف-الجمعية-${safeName}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function triggerImport() {
+    fileInputRef.current?.click();
+  }
+
+  function handleImportFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setImportError(null);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed: unknown = JSON.parse(String(reader.result));
+        if (!isValidOrgProfile(parsed)) {
+          setImportError("الملف لا يطابق بنية ملف الجمعية المتوقعة — تأكد من أنه ملف تصدير من هذه المنصة.");
+          return;
+        }
+        setDraft(parsed);
+        setSaved(false);
+      } catch {
+        setImportError("تعذّرت قراءة الملف — تأكد من أنه بصيغة JSON صحيحة.");
+      }
+    };
+    reader.onerror = () => setImportError("تعذّرت قراءة الملف من جهازك.");
+    reader.readAsText(file);
+  }
+
+  const combinedError = localSaveError ?? (saveStatus === "error" ? saveError : null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -92,19 +179,51 @@ export default function ProfilePage() {
             <CardDescription>
               كل المؤشرات في المنصة تُحتسب من هذه البيانات. عدّل أي رقم وستتحدث
               التحليلات والمحفظة والخطة تلقائيًا.
+              {mode === "cloud" && " التعديلات تُحفظ لكل أعضاء فريقك."}
             </CardDescription>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={resetToDemo}>
-              <RotateCcw className="h-4 w-4" />
-              بيانات تجريبية
+          <div className="flex flex-wrap gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={handleImportFile}
+            />
+            <Button variant="outline" size="sm" onClick={triggerImport}>
+              <Upload className="h-4 w-4" />
+              استيراد
             </Button>
-            <Button onClick={save}>
-              {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-              {saved ? "تم الحفظ" : "حفظ البيانات"}
+            <Button variant="outline" size="sm" onClick={exportData}>
+              <Download className="h-4 w-4" />
+              تصدير JSON
+            </Button>
+            {mode === "local" && (
+              <Button variant="outline" onClick={() => setResetOpen(true)}>
+                <RotateCcw className="h-4 w-4" />
+                بيانات تجريبية
+              </Button>
+            )}
+            <Button onClick={() => void save().catch(() => {})} disabled={saving}>
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : saved ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {saving ? "جارٍ الحفظ…" : saved ? "تم الحفظ" : "حفظ البيانات"}
             </Button>
           </div>
         </CardHeader>
+        {(combinedError || importError) && (
+          <CardContent className="pt-0">
+            <p className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs leading-6 text-destructive">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              {combinedError || importError}
+            </p>
+          </CardContent>
+        )}
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
@@ -462,18 +581,32 @@ export default function ProfilePage() {
 
               <Button
                 className="mt-2 w-full"
-                onClick={() => {
-                  save();
-                  router.push("/analysis");
+                disabled={saving}
+                onClick={async () => {
+                  try {
+                    await save();
+                    router.push("/analysis");
+                  } catch {
+                    // الخطأ معروض أعلى الصفحة — نبقى هنا كي يراه المستخدم
+                  }
                 }}
               >
-                <Sparkles className="h-4 w-4" />
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 احفظ وحلّل الجمعية
               </Button>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        title="إعادة الضبط إلى البيانات التجريبية"
+        description="سيُستبدل ملف الجمعية الحالي بالكامل ببيانات جمعية «نماء للتنمية» التجريبية، وستُفقد أي تعديلات غير محفوظة. هذا الإجراء محلي فقط ولا يمكن التراجع عنه."
+        confirmLabel="إعادة الضبط"
+        onConfirm={handleReset}
+      />
     </div>
   );
 }

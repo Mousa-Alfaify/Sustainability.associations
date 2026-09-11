@@ -8,7 +8,6 @@ import {
   BadgeCheck,
   CircleDollarSign,
   Clock,
-  Loader2,
   Play,
   ShieldAlert,
   Sparkles,
@@ -80,14 +79,10 @@ export default function PortfolioPage() {
     markPortfolioBuilt,
     applyRecommendedScenario,
   } = useAppStore();
-  const [building, setBuilding] = React.useState(false);
-
+  // المحفظة محسوبة سلفًا من بيانات حقيقية (useAppStore أعلاه) — لا يوجد
+  // استدعاء شبكي ينتظره هذا الزر، لذا يكشف النتيجة فورًا.
   function build() {
-    setBuilding(true);
-    window.setTimeout(() => {
-      markPortfolioBuilt();
-      setBuilding(false);
-    }, 800);
+    markPortfolioBuilt();
   }
 
   function applyAndGo() {
@@ -133,12 +128,8 @@ export default function PortfolioPage() {
                 {formatPercent(MAX_SHARE_PER_SOURCE)} من مصروفك التشغيلي.
               </p>
             </div>
-            <Button size="lg" onClick={build} disabled={building}>
-              {building ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
+            <Button size="lg" onClick={build}>
+              <Sparkles className="h-4 w-4" />
               ابنِ محفظة الاستدامة
             </Button>
           </CardContent>

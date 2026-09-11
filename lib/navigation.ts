@@ -9,6 +9,7 @@ import {
   Sparkles,
   SlidersHorizontal,
   TrendingUp,
+  Users,
 } from "lucide-react";
 
 export interface NavItem {
@@ -17,6 +18,8 @@ export interface NavItem {
   description: string;
   icon: typeof LayoutDashboard;
   group: "الرئيسية" | "التحليل" | "الحلول" | "التنفيذ";
+  /** يظهر فقط في الوضع السحابي (يتطلب حساب وفريقًا حقيقيَين) */
+  cloudOnly?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -89,6 +92,14 @@ export const NAV_ITEMS: NavItem[] = [
     description: "إجابات مبنية على أرقام جمعيتك",
     icon: Bot,
     group: "التنفيذ",
+  },
+  {
+    href: "/team",
+    label: "الفريق",
+    description: "أعضاء الجمعية ورمز الدعوة للانضمام",
+    icon: Users,
+    group: "التنفيذ",
+    cloudOnly: true,
   },
 ];
 

@@ -10,7 +10,6 @@ import {
   CalendarClock,
   Gauge,
   Layers,
-  Loader2,
   PiggyBank,
   Repeat,
   Sparkles,
@@ -66,7 +65,6 @@ import { cn } from "@/lib/utils";
 export default function DashboardPage() {
   const { profile, metrics, score, portfolio, analyzed, markAnalyzed } =
     useAppStore();
-  const [analyzing, setAnalyzing] = React.useState(false);
 
   const diagnosis = React.useMemo(
     () => buildDiagnosis(metrics, score),
@@ -81,15 +79,11 @@ export default function DashboardPage() {
 
   const inDeficit = metrics.operatingGap < 0;
 
+  // التشخيص محسوب سلفًا من بيانات حقيقية (أعلاه) — لا يوجد استدعاء شبكي
+  // ينتظره هذا الزر، لذا يكشف النتيجة فورًا بدل محاكاة تحميل وهمي.
   function runAnalysis() {
-    setAnalyzing(true);
-    window.setTimeout(() => {
-      markAnalyzed();
-      setAnalyzing(false);
-      document
-        .getElementById("diagnosis")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 700);
+    markAnalyzed();
+    document.getElementById("diagnosis")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   const coverageData = [
@@ -182,12 +176,8 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-            <Button onClick={runAnalysis} disabled={analyzing} size="lg">
-              {analyzing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Activity className="h-4 w-4" />
-              )}
+            <Button onClick={runAnalysis} size="lg">
+              <Activity className="h-4 w-4" />
               حلّل جمعيتي
             </Button>
             <Button asChild size="lg" variant="outline">
@@ -528,12 +518,8 @@ export default function DashboardPage() {
                 <p className="text-sm text-muted-foreground">
                   لم يتم تشغيل التحليل بعد
                 </p>
-                <Button onClick={runAnalysis} disabled={analyzing}>
-                  {analyzing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Activity className="h-4 w-4" />
-                  )}
+                <Button onClick={runAnalysis}>
+                  <Activity className="h-4 w-4" />
                   حلّل جمعيتي
                 </Button>
               </div>
