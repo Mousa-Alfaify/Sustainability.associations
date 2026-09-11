@@ -69,6 +69,19 @@ create table public.profiles (
 comment on table public.profiles is 'اسم العرض والبريد لكل مستخدم — تُعرض لزملائه في نفس الجمعية فقط (صفحة الفريق)';
 
 -- -------------------------------------------------------------
+-- صلاحيات الجداول (GRANT) — مطلوبة بمعزل تام عن RLS.
+-- RLS يحدد أي الصفوف تُرى بعد أن يملك الدور صلاحية الوصول للجدول أصلًا؛
+-- بدون هذه الأسطر يرفض PostgREST الطلب بخطأ 403 قبل أن تُقيَّم سياسات RLS
+-- إطلاقًا — بغض النظر عن خيار "Automatically expose new tables" عند
+-- إنشاء المشروع (الذي يُنصح بإيقافه، ولهذا هذه الأسطر ضرورية بدلًا منه).
+-- -------------------------------------------------------------
+
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.organizations to authenticated;
+grant select, insert, delete on public.organization_members to authenticated;
+grant select, update on public.profiles to authenticated;
+
+-- -------------------------------------------------------------
 -- تفعيل أمان مستوى الصف (RLS) — افتراضيًا كل شيء مرفوض حتى تُضاف سياسة
 -- -------------------------------------------------------------
 
@@ -208,6 +221,11 @@ end;
 $$;
 
 comment on function public.join_organization is 'ينضم المستخدم الحالي إلى جمعية موجودة عبر رمز الدعوة';
+
+-- بوستجرس يمنح EXECUTE على الدوال الجديدة لـ PUBLIC افتراضيًا، لكن هذين
+-- السطرين صريحان حتى لا يعتمد الإعداد على سلوك افتراضي قد يتغيّر
+grant execute on function public.create_organization(text, text) to authenticated;
+grant execute on function public.join_organization(text, text) to authenticated;
 
 -- -------------------------------------------------------------
 -- تحديث updated_at تلقائيًا عند أي تعديل على صف الجمعية

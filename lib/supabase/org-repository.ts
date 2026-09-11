@@ -113,15 +113,32 @@ export interface MemberWithProfile extends MemberRow {
   profile: ProfileRow | null;
 }
 
+/**
+ * يجلب الأعضاء ثم ملفاتهم الشخصية في استعلامين منفصلين بدل الاعتماد على
+ * تضمين PostgREST التلقائي — لا توجد علاقة مفتاح أجنبي مباشرة بين
+ * organization_members وprofiles (كلاهما يشير إلى auth.users بشكل منفصل)،
+ * فلا يستطيع PostgREST استنتاج العلاقة تلقائيًا.
+ */
 export async function fetchMembers(orgId: string): Promise<MemberWithProfile[]> {
   const client = requireSupabase();
-  const { data, error } = await client
+
+  const { data: members, error: membersError } = await client
     .from("organization_members")
-    .select("organization_id, user_id, role, joined_at, profile:profiles(id, email, display_name, created_at)")
+    .select("organization_id, user_id, role, joined_at")
     .eq("organization_id", orgId)
     .order("joined_at", { ascending: true });
-  if (error) throw new Error(translateError(error.message, "تعذّر تحميل أعضاء الفريق"));
-  return (data ?? []) as unknown as MemberWithProfile[];
+  if (membersError) throw new Error(translateError(membersError.message, "تعذّر تحميل أعضاء الفريق"));
+  if (!members || members.length === 0) return [];
+
+  const userIds = members.map((m) => m.user_id);
+  const { data: profiles, error: profilesError } = await client
+    .from("profiles")
+    .select("id, email, display_name, created_at")
+    .in("id", userIds);
+  if (profilesError) throw new Error(translateError(profilesError.message, "تعذّر تحميل ملفات الأعضاء"));
+
+  const profileById = new Map((profiles ?? []).map((p) => [p.id, p as ProfileRow]));
+  return members.map((m) => ({ ...m, profile: profileById.get(m.user_id) ?? null }));
 }
 
 export async function leaveOrganization(userId: string) {

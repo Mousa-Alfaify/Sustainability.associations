@@ -125,6 +125,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     authenticated,
     authStatus,
     orgStatus,
+    saveError,
   } = useAppStore();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [resetOpen, setResetOpen] = React.useState(false);
@@ -150,6 +151,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   function handleReset() {
     resetToDemo();
     setResetOpen(false);
+  }
+
+  // في الوضع السحابي: لا نعرض بيانات الجمعية (ولو تجريبية) قبل التأكد من
+  // جلبها فعليًا — تحميل حقيقي أثناء الجلب، وخطأ صريح إن فشل بدل عرض
+  // أرقام جمعية نماء التجريبية على أنها بيانات المستخدم الحقيقية.
+  if (cloudMode && authStatus === "signed-in") {
+    if (orgStatus === "checking") {
+      return (
+        <div className="flex min-h-screen items-center justify-center gap-3 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          جارٍ تحميل بيانات جمعيتك…
+        </div>
+      );
+    }
+    if (orgStatus === "error") {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
+            <AlertTriangle className="h-7 w-7" />
+          </div>
+          <div>
+            <p className="text-base font-semibold">تعذّر تحميل بيانات جمعيتك</p>
+            <p className="mx-auto mt-1.5 max-w-sm text-sm leading-6 text-muted-foreground">
+              {saveError ?? "حدث خطأ غير متوقع أثناء الاتصال بقاعدة البيانات."}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={() => window.location.reload()}>
+              <RefreshCw className="h-4 w-4" />
+              إعادة المحاولة
+            </Button>
+            <Button variant="outline" onClick={logout}>
+              <LogOut className="h-4 w-4" />
+              تسجيل الخروج
+            </Button>
+          </div>
+        </div>
+      );
+    }
   }
 
   return (
