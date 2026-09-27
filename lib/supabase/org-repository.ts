@@ -20,7 +20,7 @@ const KNOWN_MESSAGES: Record<string, string> = {
 function translateError(message: string, context: string): string {
   if (KNOWN_MESSAGES[message]) return KNOWN_MESSAGES[message];
   if (/failed to fetch|network|fetch failed|load failed/i.test(message)) {
-    return "تعذّر الاتصال بالخادم — تحقّق من اتصالك بالإنترنت، أو من صحة إعدادات Supabase في .env.local";
+    return "تعذّر الاتصال بقاعدة البيانات — تحقّق من اتصالك بالإنترنت. إذا استمرت المشكلة فقد يكون مشروع Supabase متوقفًا مؤقتًا (يحدث تلقائيًا للمشاريع المجانية بعد 7 أيام بلا نشاط) — سجّل الدخول إلى لوحة Supabase وأعد تشغيله من هناك.";
   }
   return `${context}: ${message}`;
 }
